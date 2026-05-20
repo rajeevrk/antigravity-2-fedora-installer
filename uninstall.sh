@@ -62,6 +62,7 @@ if [ -d "$USER_SHARE_DIR" ] || [ -f "$USER_DESKTOP_DIR/antigravity.desktop" ] ||
     safe_remove "$USER_BIN_DIR/antigravity" "false"
     safe_remove "$USER_DESKTOP_DIR/antigravity.desktop" "false"
     safe_remove "$USER_DESKTOP_DIR/antigravity-2.desktop" "false"
+    safe_remove "$USER_DESKTOP_DIR/antigravity-legacy.desktop" "false"
     
     echo -e "${YELLOW}Refreshing user desktop database...${NC}"
     update-desktop-database "$USER_DESKTOP_DIR" || true

@@ -186,6 +186,24 @@ escalate_cmd ln -s "$TARGET_APP_DIR/antigravity" "$TARGET_BIN_PATH"
 
 # Configure Desktop application launcher entry
 echo -e "${YELLOW}Generating Desktop integration entry...${NC}"
+
+# Shadowing Detection: Check if a local desktop file will hide the system-wide one
+LOCAL_SHADOW_FILE="$HOME/.local/share/applications/antigravity.desktop"
+if [[ "$INSTALL_SCOPE" == "system" && -f "$LOCAL_SHADOW_FILE" ]]; then
+    echo -e "${YELLOW}${BOLD}⚠️  Shadowing Conflict Detected!${NC}"
+    echo -e "${YELLOW}A local desktop entry at $LOCAL_SHADOW_FILE is currently shadowing the system-wide launcher.${NC}"
+    echo -e "${YELLOW}This will prevent 'Antigravity 2.0' from appearing in your application menu.${NC}"
+    
+    # Check if it belongs to v1.x
+    if grep -q "/usr/share/antigravity" "$LOCAL_SHADOW_FILE" 2>/dev/null; then
+        echo -e "${BLUE}Detected legacy v1.x configuration. Renaming it to 'antigravity-legacy.desktop' to resolve...${NC}"
+        mv "$LOCAL_SHADOW_FILE" "$HOME/.local/share/applications/antigravity-legacy.desktop"
+        update-desktop-database "$HOME/.local/share/applications" || true
+        echo -e "${GREEN}✓ Shadowing resolved.${NC}"
+    else
+        echo -e "${RED}Warning: Please manually remove or rename $LOCAL_SHADOW_FILE to see the new version.${NC}"
+    fi
+fi
 DESKTOP_TEMPLATE="$(dirname "$0")/antigravity.desktop.template"
 
 if [[ ! -f "$DESKTOP_TEMPLATE" ]]; then
