@@ -20,9 +20,22 @@ A shell-based installation and lifecycle management utility for running Antigrav
 
 ---
 
-## Quick Start (One-Liner Install)
+## Installation
 
-To fetch, verify, and execute the installer:
+There are two primary methods to run the installer: cloning the repository or using the quick one-liner.
+
+### Option 1: Clone and Run
+To clone the repository and execute the installer locally:
+
+```bash
+git clone https://github.com/jssroberto/antigravity-2-fedora-installer.git
+cd antigravity-2-fedora-installer
+chmod +x install.sh
+./install.sh
+```
+
+### Option 2: Quick One-Liner
+To download and execute the installer script directly:
 
 ```bash
 curl -sSL "https://raw.githubusercontent.com/jssroberto/antigravity-2-fedora-installer/main/install.sh" -o install.sh && chmod +x install.sh && ./install.sh
