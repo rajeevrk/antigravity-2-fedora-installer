@@ -27,6 +27,10 @@ NC='\033[0m' # No Color
 INSTALL_SCOPE="system"
 APP_MODE="" # Starts empty to force interaction if not provided
 
+VERSION_IDE="2.0.3"
+VERSION_AGENT="2.0.6"
+APP_VERSION=""
+
 DOWNLOAD_URL_IDE="https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.3-6242596486512640/linux-x64/Antigravity%20IDE.tar.gz"
 DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-x64/Antigravity.tar.gz"
 
@@ -34,6 +38,20 @@ DRY_RUN=false
 TEMP_DIR=""
 LEGACY_REPOSITIONED=false
 DOWNLOAD_URL=""
+AUTO_CONFIRM=false
+
+# Resiliency states
+BACKUP_APP_DIR=""
+INSTALL_SUCCESSFUL=false
+
+# System-wide installations require selective elevation helper
+escalate_cmd() {
+    if [[ "$INSTALL_SCOPE" == "system" ]]; then
+        sudo "$@"
+    else
+        "$@"
+    fi
+}
 
 # Print usage instructions
 show_help() {
@@ -45,6 +63,7 @@ Options:
   --user             Install to user space (~/.local) without requiring root privileges.
   --url <url>        Override the default download URL.
   --dry-run          Perform pre-flight checks and package download only. No files written.
+  -y, --yes          Automatic yes to prompts (bypass confirmation).
   -h, --help         Show this help message.
 EOF
 }
@@ -76,6 +95,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dry-run)
             DRY_RUN=true
+            shift
+            ;;
+        -y|--yes)
+            AUTO_CONFIRM=true
             shift
             ;;
         -h|--help)
@@ -143,12 +166,14 @@ if [[ "$APP_MODE" == "ide" ]]; then
     APP_NAME_PRETTY="Antigravity 2.0 IDE"
     APP_COMMENT="Experience liftoff (v2.0 Standalone IDE)"
     BINARY_NAME="antigravity-ide"
+    APP_VERSION="$VERSION_IDE"
     [[ -z "$DOWNLOAD_URL" ]] && DOWNLOAD_URL="$DOWNLOAD_URL_IDE"
 else
     APP_NAME_SHORT="antigravity"
     APP_NAME_PRETTY="Antigravity 2.0 Agent"
     APP_COMMENT="Experience liftoff (v2.0 Agent)"
     BINARY_NAME="antigravity"
+    APP_VERSION="$VERSION_AGENT"
     [[ -z "$DOWNLOAD_URL" ]] && DOWNLOAD_URL="$DOWNLOAD_URL_AGENT"
 fi
 
@@ -172,9 +197,46 @@ else
     ICON_LOOKUP_NAME="antigravity" # Force native asset resource name for desktop styling
 fi
 
+# Detect currently installed version
+CURRENT_VERSION="none"
+if [[ -f "$TARGET_APP_DIR/version.txt" ]]; then
+    CURRENT_VERSION=$(cat "$TARGET_APP_DIR/version.txt" 2>/dev/null || echo "unknown")
+elif [[ -d "$TARGET_APP_DIR" || -L "$TARGET_BIN_PATH" || ( "$INSTALL_SCOPE" == "system" && "$APP_NAME_SHORT" == "antigravity" && -d "/opt/Antigravity-x64" ) ]]; then
+    # Fallback: if version.txt is missing but the target directory, the symlink,
+    # or the legacy /opt/Antigravity-x64 folder exists, we classify it as a legacy pre-version-tracked install.
+    CURRENT_VERSION="legacy"
+fi
+
+if [[ "$CURRENT_VERSION" != "none" ]]; then
+    if [[ "$CURRENT_VERSION" == "legacy" ]]; then
+        echo -e "${GREEN}Upgrade Notice: An existing installation was detected. Upgrading ${APP_NAME_PRETTY} to v${APP_VERSION}...${NC}"
+    elif [[ "$CURRENT_VERSION" == "$APP_VERSION" ]]; then
+        echo -e "${YELLOW}Notice: ${APP_NAME_PRETTY} v${CURRENT_VERSION} is already installed. Reinstalling...${NC}"
+    else
+        echo -e "${GREEN}Upgrade Notice: Upgrading ${APP_NAME_PRETTY} from v${CURRENT_VERSION} to v${APP_VERSION}...${NC}"
+    fi
+
+    # Upgrade/reinstall interactive confirmation prompt
+    if [[ "$AUTO_CONFIRM" == "false" && "$DRY_RUN" == "false" ]]; then
+        if [[ ! -t 0 ]]; then
+            echo -e "${YELLOW}Warning: Non-interactive terminal detected. Proceeding automatically...${NC}"
+        else
+            echo -ne "\nDo you want to proceed? [Y/n]: "
+            read -r CONFIRM
+            CONFIRM=$(echo "${CONFIRM:-y}" | tr '[:upper:]' '[:lower:]')
+            if [[ "$CONFIRM" != "y" && "$CONFIRM" != "yes" ]]; then
+                echo -e "${RED}Installation aborted by user.${NC}"
+                exit 0
+            fi
+        fi
+    fi
+else
+    echo -e "${GREEN}New installation: Installing ${APP_NAME_PRETTY} v${APP_VERSION}...${NC}"
+fi
+
 # Pre-flight check: Required utilities
 echo -e "${YELLOW}Verifying system utilities...${NC}"
-for util in curl tar sed update-desktop-database; do
+for util in curl tar sed update-desktop-database df awk; do
     if ! command -v "$util" &> /dev/null; then
         echo -e "${RED}Error: Required command '$util' is missing.${NC}" >&2
         exit 1
@@ -182,8 +244,33 @@ for util in curl tar sed update-desktop-database; do
 done
 echo -e "${GREEN}✓ All core utilities verified.${NC}"
 
+# Pre-flight check: Available disk space (POSIX-compliant check)
+echo -e "${YELLOW}Verifying available disk space...${NC}"
+CHECK_PATH="$TARGET_PARENT_DIR"
+while [[ ! -d "$CHECK_PATH" ]]; do
+    CHECK_PATH=$(dirname "$CHECK_PATH")
+done
+
+AVAILABLE_KB=$(df -Pk "$CHECK_PATH" | tail -1 | awk '{print $4}')
+if [[ -n "$AVAILABLE_KB" && "$AVAILABLE_KB" -lt 512000 ]]; then
+    echo -e "${RED}Error: Insufficient disk space in target partition ($CHECK_PATH).${NC}" >&2
+    echo -e "${RED}Available: $((AVAILABLE_KB / 1024))MB, Required: 500MB headroom.${NC}" >&2
+    exit 1
+fi
+echo -e "${GREEN}✓ Disk space verification passed ($((AVAILABLE_KB / 1024))MB available).${NC}"
+
 # Setup secure cleanup on script exit or interrupt
 cleanup() {
+    # Perform rollback if installation was interrupted or failed after a backup was created
+    if [[ "${INSTALL_SUCCESSFUL}" == "false" && -n "${BACKUP_APP_DIR:-}" && -d "$BACKUP_APP_DIR" ]]; then
+        echo -e "\n${RED}Installation interrupted or failed. Rolling back to previous state...${NC}"
+        if [[ -d "${TARGET_APP_DIR:-}" ]]; then
+            escalate_cmd rm -rf "$TARGET_APP_DIR"
+        fi
+        escalate_cmd mv "$BACKUP_APP_DIR" "$TARGET_APP_DIR"
+        echo -e "${GREEN}✓ Rollback completed successfully.${NC}"
+    fi
+
     if [[ -n "${TEMP_DIR:-}" && -d "$TEMP_DIR" ]]; then
         echo -e "${YELLOW}Cleaning up temporary directory: $TEMP_DIR${NC}"
         rm -rf "$TEMP_DIR"
@@ -216,21 +303,19 @@ if [[ "$DRY_RUN" == "true" ]]; then
     exit 0
 fi
 
-# System-wide installations require selective elevation
-escalate_cmd() {
-    if [[ "$INSTALL_SCOPE" == "system" ]]; then
-        sudo "$@"
-    else
-        "$@"
-    fi
-}
+
 
 echo -e "${YELLOW}Extracting and installing binaries...${NC}"
 
-# Remove target directory if it already exists for a clean fresh install
+# Safely back up existing installation directory instead of removing it beforehand
 if [[ -d "$TARGET_APP_DIR" ]]; then
-    echo -e "${YELLOW}Removing old installation folder at $TARGET_APP_DIR...${NC}"
-    escalate_cmd rm -rf "$TARGET_APP_DIR"
+    BACKUP_APP_DIR="${TARGET_APP_DIR}.bak"
+    echo -e "${YELLOW}Backing up existing installation folder to $BACKUP_APP_DIR...${NC}"
+    # Remove any old residual backup directory if it exists from a previous crash
+    if [[ -d "$BACKUP_APP_DIR" ]]; then
+        escalate_cmd rm -rf "$BACKUP_APP_DIR"
+    fi
+    escalate_cmd mv "$TARGET_APP_DIR" "$BACKUP_APP_DIR"
 fi
 
 # Ensure parent directory exists
@@ -260,12 +345,22 @@ echo -e "${BLUE}Detected package folder: $EXTRACTED_DIR_NAME${NC}"
 # Move the extracted content to the final destination
 escalate_cmd mv "$EXTRACT_TEMP/$EXTRACTED_DIR_NAME" "$TARGET_APP_DIR"
 
+# Write the version metadata file
+echo "$APP_VERSION" | escalate_cmd tee "$TARGET_APP_DIR/version.txt" > /dev/null
+
 # Verify execution capability using dynamic binary name
 if [[ ! -f "$TARGET_APP_DIR/$BINARY_NAME" ]]; then
     echo -e "${RED}Error: Extraction completed but executable was not found at $TARGET_APP_DIR/$BINARY_NAME${NC}" >&2
     exit 1
 fi
 escalate_cmd chmod +x "$TARGET_APP_DIR/$BINARY_NAME"
+
+# Commit Phase: Successful install, mark flag and clean up backup
+INSTALL_SUCCESSFUL=true
+if [[ -n "$BACKUP_APP_DIR" && -d "$BACKUP_APP_DIR" ]]; then
+    echo -e "${GREEN}✓ Verification passed. Removing installation backup...${NC}"
+    escalate_cmd rm -rf "$BACKUP_APP_DIR"
+fi
 
 # Configure symlink path
 echo -e "${YELLOW}Configuring system command shortcuts...${NC}"
@@ -391,3 +486,23 @@ if [[ "$LEGACY_REPOSITIONED" == "true" ]]; then
     echo -e "  Due to GNOME Shell's launcher grid caching, you may need to **log out and log back in**"
     echo -e "  for both launchers to appear side-by-side in your applications drawer."
 fi
+
+# Post-install Shell PATH verification diagnostics
+if [[ "$INSTALL_SCOPE" == "user" ]]; then
+    BIN_DIR=$(dirname "$TARGET_BIN_PATH")
+    if [[ ":$PATH:" != *":$BIN_DIR:"* && ":$PATH:" != *":${BIN_DIR/#$HOME/\~}:"* ]]; then
+        SHELL_NAME=$(basename "${SHELL:-bash}")
+        CONFIG_FILE="$HOME/.bashrc"
+        if [[ "$SHELL_NAME" == "zsh" ]]; then
+            CONFIG_FILE="$HOME/.zshrc"
+        elif [[ "$SHELL_NAME" == "ksh" ]]; then
+            CONFIG_FILE="$HOME/.kshrc"
+        fi
+
+        echo -e "\n${YELLOW}${BOLD}⚠️  Shell Configuration Notice:${NC}"
+        echo -e "  The local bin directory (${BOLD}${BIN_DIR}${NC}) is not in your system ${BOLD}PATH${NC} variable."
+        echo -e "  To launch the application using the '${BOLD}${APP_NAME_SHORT}${NC}' command, add it by running:"
+        echo -e "  ${BLUE}echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ${CONFIG_FILE} && source ${CONFIG_FILE}${NC}"
+    fi
+fi
+
