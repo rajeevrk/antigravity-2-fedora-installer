@@ -73,6 +73,67 @@ To install a specific version or override the GCS mirror URL:
 ./install.sh --url "https://custom-mirror.com/path/to/Antigravity.tar.gz"
 ```
 
+## Antigravity 2.0 RPM Distribution
+
+---
+
+### 1. Install Build Dependencies
+
+To build the RPM packages, you need the RPM development toolchain:
+
+```bash
+sudo dnf -y groupinstall 'RPM Development Tools'
+sudo dnf install -y rpkg
+sudo dnf builddep -y antigravity2.spec antigravity2-ide.spec
+```
+
+### 2. Build the Packages
+
+Execute the build script to fetch the upstream source tarballs and build the RPM packages locally:
+
+```bash
+./build.sh
+```
+
+> [!NOTE]
+> **Build Duration Note:**
+> Building these packages involves downloading upstream archives and compiling files locally:
+> * **`antigravity2` (Agent):** Takes ~2 minutes.
+> * **`antigravity2-ide` (IDE):** Takes ~3 minutes.
+> 
+> *Actual build times depend on your network speed and system specifications.*
+
+The generated RPM files will be stored in `~/rpkg/`.
+
+### 3. Install the Packages
+
+Once the build completes successfully, install the packages using `dnf`:
+
+```bash
+# Install the Antigravity Agent v2.0
+sudo dnf install ~/rpkg/$(uname -m)/antigravity2-2.0.6-*.rpm
+
+# Install the Antigravity IDE v2.0 (x86_64 only)
+sudo dnf install ~/rpkg/x86_64/antigravity2-ide-2.0.3-*.rpm
+```
+
+## Usage
+
+You can launch either package using your desktop environment launcher or via the command line:
+
+* **Antigravity Agent v2.0:** `antigravity2`
+* **Antigravity IDE v2.0:** `antigravity2-ide`
+
+## Uninstallation
+
+To remove the packages:
+
+```bash
+sudo dnf remove antigravity2 antigravity2-ide
+
+
+```
+
 ---
 
 ## Command-Line Arguments
@@ -129,3 +190,4 @@ chmod +x uninstall.sh
 ## License
 
 This project is open-source and available under the [MIT License](LICENSE).
+Antigravity 2.0 and its associated branding and assets are property of Google LLC. All trademarks are property of their respective owners.

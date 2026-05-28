@@ -1,0 +1,5 @@
+# Downloaded source tarballs
+Antigravity.tar.gz
+Antigravity IDE.tar.gz
+*.tar.gz
+.vscode/

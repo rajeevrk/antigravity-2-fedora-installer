@@ -1,0 +1,83 @@
+# Disable debug packages as we're packaging precompiled binaries
+%global debug_package %{nil}
+%undefine __brp_check_rpaths
+
+# Exclude private shared libraries from being registered as provides or requirements
+%global __provides_exclude_from ^/opt/antigravity2-ide-Linux/.*\\.so.*$
+%global __requires_exclude_from ^/opt/antigravity2-ide-Linux/.*\\.so.*$
+%global __requires_exclude ^(libffmpeg\\.so|libmsalruntime\\.so|/usr/bin/node|/usr/bin/perl|/usr/bin/python3)
+
+
+Name:           antigravity2-ide
+Version:        2.0.3
+Release:        2%{?dist}
+Summary:        Antigravity 2.0 IDE
+
+License:        Proprietary (Google Terms of Service)
+URL:            https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/index.html
+ExclusiveArch:  x86_64
+
+Source0:        https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.3-6242596486512640/linux-x64/Antigravity%20IDE.tar.gz
+Source1:        antigravity2-ide.desktop
+Source2:        antigravity.png
+
+BuildRequires:  tar
+BuildRequires:  gzip
+
+%description
+Antigravity 2.0 IDE repackaged for Fedora.
+Experience liftoff (v2.0 Standalone IDE).
+
+%prep
+%setup -c -T
+tar -xzf %{SOURCE0}
+mv "Antigravity IDE" %{name}-Linux
+
+# Rename the internal executable to prevent conflict with v1.0
+mv %{name}-Linux/antigravity-ide %{name}-Linux/%{name}
+
+%build
+# No build steps needed for repackaged binaries
+
+%install
+mkdir -p %{buildroot}/opt
+mv %{name}-Linux %{buildroot}/opt/%{name}-Linux
+
+# Write version file
+echo "%{version}" > %{buildroot}/opt/%{name}-Linux/version.txt
+
+# Ensure executable permission
+chmod +x %{buildroot}/opt/%{name}-Linux/%{name}
+
+# Create symlink in /usr/bin
+mkdir -p %{buildroot}%{_bindir}
+ln -s /opt/%{name}-Linux/%{name} %{buildroot}%{_bindir}/%{name}
+
+# Install desktop file
+mkdir -p %{buildroot}%{_datadir}/applications
+install -m 644 %{SOURCE1} %{buildroot}%{_datadir}/applications/%{name}.desktop
+
+# Install icon
+mkdir -p %{buildroot}%{_datadir}/icons/hicolor/512x512/apps
+install -m 644 %{SOURCE2} %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/%{name}.png
+
+%post
+/usr/bin/update-desktop-database &> /dev/null || :
+/usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
+
+%postun
+/usr/bin/update-desktop-database &> /dev/null || :
+/usr/bin/gtk-update-icon-cache %{_datadir}/icons/hicolor &> /dev/null || :
+
+%files
+/opt/%{name}-Linux/
+%{_bindir}/%{name}
+%{_datadir}/applications/%{name}.desktop
+%{_datadir}/icons/hicolor/512x512/apps/%{name}.png
+
+%changelog
+* Thu May 28 2026 ApicalShark - 2.0.3-2
+- Fix StartupWMClass to match applicationName (antigravity-ide) so taskbar icon appears correctly
+
+* Thu May 28 2026 ApicalShark - 2.0.3-1
+- Initial RPM release of Antigravity 2.0 IDE renamed to antigravity2-ide
