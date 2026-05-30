@@ -9,7 +9,7 @@
 
 
 Name:           antigravity2
-Version:        2.0.6
+Version:        2.0.10
 Release:        1%{?dist}
 Summary:        Antigravity 2.0 Agent
 
@@ -17,8 +17,8 @@ License:        Proprietary (Google Terms of Service)
 URL:            https://storage.googleapis.com/antigravity-public/antigravity-hub/index.html
 ExclusiveArch:  x86_64 aarch64
 
-Source0:        https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-x64/Antigravity.tar.gz
-Source1:        https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-arm/Antigravity.tar.gz
+Source0:        https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.10-5119448496078848/linux-x64/Antigravity.tar.gz
+Source1:        https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.10-5119448496078848/linux-arm/Antigravity.tar.gz
 Source2:        antigravity2.desktop
 Source3:        antigravity.png
 
@@ -83,5 +83,15 @@ install -m 644 %{SOURCE3} %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/%{n
 %{_datadir}/icons/hicolor/512x512/apps/%{name}.png
 
 %changelog
-* Thu May 28 2026 ApicalShark - 2.0.6-1
-- Initial RPM release of Antigravity 2.0 Agent renamed to antigravity2
+* Thu May 28 2026 Roberto Garcia <jrobertogarcia16@gmail.com> - 2.0.10-1
+- Various reliability and usability improvements
+- Fix G1 credit bug
+
+* Fri May 22 2026 Roberto Garcia <jrobertogarcia16@gmail.com> - 2.0.6-1
+- Add an install IDE button if Antigravity IDE is not installed
+- Add an open IDE button if Antigravity IDE is installed
+
+* Tue May 19 2026 Roberto Garcia <jrobertogarcia16@gmail.com> - 2.0.1-1
+- Fix project migration issues for projects with CJK characters in their titles
+- Fix issue causing duplicate projects when importing from Antigravity 1.0
+- Resolve issue where Google One credits were not being applied or utilized

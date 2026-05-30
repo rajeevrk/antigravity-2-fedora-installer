@@ -28,11 +28,11 @@ INSTALL_SCOPE="system"
 APP_MODE="" # Starts empty to force interaction if not provided
 
 VERSION_IDE="2.0.3"
-VERSION_AGENT="2.0.6"
+VERSION_AGENT="2.0.10"
 APP_VERSION=""
 
 DOWNLOAD_URL_IDE="https://edgedl.me.gvt1.com/edgedl/release2/j0qc3/antigravity/stable/2.0.3-6242596486512640/linux-x64/Antigravity%20IDE.tar.gz"
-DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-x64/Antigravity.tar.gz"
+DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.10-5119448496078848/linux-x64/Antigravity.tar.gz"
 
 DRY_RUN=false
 TEMP_DIR=""
@@ -151,13 +151,13 @@ fi
 
 # Dynamic URL Selection based on architecture
 if [[ "$ARCH" == "aarch64" ]]; then
-    DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-arm/Antigravity.tar.gz"
+    DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.10-5119448496078848/linux-arm/Antigravity.tar.gz"
     if [[ "$APP_MODE" == "ide" ]]; then
         echo -e "${YELLOW}Warning: Native ARM64 build is not officially supported for the IDE variant.${NC}" >&2
         echo -e "${YELLOW}Defaulting to the standard x86_64 package (requires compatibility layers).${NC}" >&2
     fi
 else
-    DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.6-5413878570549248/linux-x64/Antigravity.tar.gz"
+    DOWNLOAD_URL_AGENT="https://storage.googleapis.com/antigravity-public/antigravity-hub/2.0.10-5119448496078848/linux-x64/Antigravity.tar.gz"
 fi
 
 # Define dynamic variables based on selected mode
