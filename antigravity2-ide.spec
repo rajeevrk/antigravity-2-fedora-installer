@@ -82,6 +82,9 @@ install -m 644 %{SOURCE3} %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/%{n
 %{_datadir}/icons/hicolor/512x512/apps/%{name}.png
 
 %changelog
+* Wed Jun 25 2026 Roberto Garcia <jrobertogarcia16@gmail.com> - 2.1.1-1
+- Update to version 2.1.1 with new download URLs and native ARM64 support
+
 * Thu Jun 04 2026 Roberto Garcia <jrobertogarcia16@gmail.com> - 2.0.4-1
 - Update to version 2.0.4 with new download URLs and native ARM64 support
 
